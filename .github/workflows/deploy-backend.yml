@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -24,8 +24,17 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
-            cd /home/y-b/pon2 || git clone https://github.com/Martin212038201938/PoN2.git pon2 && cd pon2
-            git fetch origin
-            git checkout claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
-            git pull origin claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
-            bash scripts/deploy-to-alwaysdata.sh
+            cd ~
+            if [ -d ~/pon2/.git ]; then
+              echo "Updating existing repository..."
+              cd ~/pon2
+              git fetch origin
+              git reset --hard origin/claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+              git clean -fd
+            else
+              echo "Cloning repository..."
+              git clone https://github.com/Martin212038201938/PoN2.git pon2
+              cd ~/pon2
+              git checkout claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+            fi
+            bash ~/pon2/scripts/deploy-to-alwaysdata.sh
