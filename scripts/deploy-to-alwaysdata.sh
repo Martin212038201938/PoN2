@@ -34,8 +34,10 @@ REDIS_PORT=6379
 REDIS_PASSWORD=""
 
 # Server
+HOST=0.0.0.0
 PORT=8080
 NODE_ENV="production"
+CORS_ORIGIN="https://pon2.yellow-plane.com"
 
 # JWT
 JWT_SECRET="57UjURKALW2kWtGA/5Z54nrLZLB93NodmFwPShIx8Ao="
@@ -61,7 +63,7 @@ ENVEOF
 # Create frontend .env
 echo "🔧 Creating frontend .env file..."
 cat > frontend/.env << 'ENVEOF'
-VITE_API_URL=https://pon2.yellow-plane.com/api
+VITE_API_URL=https://api.pon2.yellow-plane.com/api
 ENVEOF
 
 # Initialize database
@@ -91,7 +93,7 @@ fi
 echo "🚀 Starting backend with PM2..."
 cd ~/pon2/backend
 pm2 delete pon2-backend 2>/dev/null || true
-pm2 start dist/index.js --name pon2-backend
+pm2 start npm --name pon2-backend -- run start:prod
 pm2 save
 
 # Show status
