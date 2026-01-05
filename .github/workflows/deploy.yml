@@ -35,16 +35,16 @@ jobs:
         env:
           VITE_API_URL: https://api.pon2.yellow-plane.com/api
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: 21
-          local-dir: frontend/dist/
-          server-dir: /www/pon2/
-          dangerous-clean-slate: false
-          timeout: 300000
-          log-level: verbose
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy via rsync over SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -p "$SSH_PASSWORD" rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=no -p 22" \
+            frontend/dist/ \
+            ${SSH_USERNAME}@${SSH_HOST}:/www/pon2/
