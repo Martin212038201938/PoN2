@@ -3,7 +3,7 @@ name: Deploy PoN2 Frontend to AlwaysData
 on:
   push:
     branches:
-      - main
+      - claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
   workflow_dispatch:
 
 jobs:
