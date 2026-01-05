@@ -15,7 +15,7 @@ import {
   XCircle,
   Users,
   FileSearch,
-  FileText,
+  
   TrendingUp,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
