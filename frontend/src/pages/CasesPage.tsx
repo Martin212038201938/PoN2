@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Case, CaseStatus } from '../types';
-import { formatDate, formatCurrency, formatPercentage } from '../utils/format';
+import { formatDate, formatPercentage } from '../utils/format';
 import { Plus, Search, Filter } from 'lucide-react';
 import { cn } from '../utils/cn';
 
