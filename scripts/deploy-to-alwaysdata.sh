@@ -4,31 +4,16 @@ set -e
 echo "🚀 Starting PoN2 Deployment on AlwaysData..."
 echo ""
 
-# Change to home directory
-cd ~
+# We're already in ~/pon2 directory when this script is called
 
-# Clone or update repository
-if [ -d ~/pon2/.git ]; then
-    echo "📥 Updating existing repository..."
-    cd ~/pon2
-    git fetch origin
-    git reset --hard origin/claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
-    git clean -fd
-else
-    echo "📦 Cloning repository..."
-    git clone https://github.com/Martin212038201938/PoN2.git pon2
-    cd ~/pon2
-    git checkout claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
-fi
-
-# Install dependencies
-echo "📦 Installing dependencies (this may take a while)..."
-cd ~/pon2/backend
+# Install backend dependencies
+echo "📦 Installing backend dependencies..."
+cd backend
 npm install
 
 # Create backend .env
 echo "🔧 Creating backend .env file..."
-cat > backend/.env << 'ENVEOF'
+cat > .env << 'ENVEOF'
 # Database
 DATABASE_URL="postgresql://y-b_pon:Schwyz_6436!@postgresql-y-b.alwaysdata.net:5432/y-b_pon2_production"
 
@@ -57,15 +42,8 @@ DEFAULT_MAX_API_CALLS_PER_SOURCE=50
 LOG_LEVEL="info"
 ENVEOF
 
-# Create frontend .env
-echo "🔧 Creating frontend .env file..."
-cat > frontend/.env << 'ENVEOF'
-VITE_API_URL=https://api.pon2.yellow-plane.com/api
-ENVEOF
-
 # Initialize database
 echo "🗄️  Initializing database with Prisma..."
-cd ~/pon2/backend
 npm run db:generate
 npm run db:push
 
@@ -73,9 +51,17 @@ npm run db:push
 echo "🔨 Building backend..."
 npm run build
 
-# Build frontend
+# Install frontend dependencies and build
 echo "🎨 Building frontend..."
-cd ~/pon2/frontend
+cd ../frontend
+npm install
+
+# Create frontend .env
+echo "🔧 Creating frontend .env file..."
+cat > .env << 'ENVEOF'
+VITE_API_URL=https://api.pon2.yellow-plane.com/api
+ENVEOF
+
 npm run build
 
 # Install PM2 if not already installed
@@ -88,7 +74,7 @@ fi
 
 # Start backend with PM2
 echo "🚀 Starting backend with PM2..."
-cd ~/pon2/backend
+cd ../backend
 pm2 delete pon2-backend 2>/dev/null || true
 pm2 start npm --name pon2-backend -- run start:prod
 pm2 save
@@ -108,13 +94,9 @@ echo "   Frontend: Built to ~/pon2/frontend/dist"
 echo "   Domain:   pon2.yellow-plane.com"
 echo "   Database: y-b_pon2_production"
 echo ""
-echo "📋 Next Steps:"
-echo "   1. Configure AlwaysData website for backend (Node.js on port 8080)"
-echo "   2. Configure AlwaysData website for frontend (static files from ~/pon2/frontend/dist)"
-echo "   3. Add your API keys to ~/pon2/backend/.env"
-echo "   4. Enable SSL/HTTPS in AlwaysData panel"
-echo "   5. Test: https://pon2.yellow-plane.com"
+echo "📋 Configuration:"
+echo "   AlwaysData Site 992755: Node.js app pointing to port 8080"
+echo "   AlwaysData Site 992754: Static files from ~/pon2/frontend/dist"
 echo ""
-echo "🔄 Future Updates:"
-echo "   Run: ~/pon2/scripts/deploy.sh"
+echo "✅ Backend is deployed and running!"
 echo ""
