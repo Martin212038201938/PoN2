@@ -44,7 +44,7 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: frontend/dist/
-          server-dir: /www/pon2/frontend/dist/
+          server-dir: /www/pon2/
           dangerous-clean-slate: false
           timeout: 300000
           log-level: verbose
