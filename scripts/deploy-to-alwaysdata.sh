@@ -7,40 +7,37 @@ echo ""
 # Change to home directory
 cd ~
 
-# Remove old installation if exists
-if [ -d ~/pon2 ]; then
-    echo "⚠️  Removing old pon2 directory..."
-    rm -rf ~/pon2
+# Clone or update repository
+if [ -d ~/pon2/.git ]; then
+    echo "📥 Updating existing repository..."
+    cd ~/pon2
+    git fetch origin
+    git reset --hard origin/claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+    git clean -fd
+else
+    echo "📦 Cloning repository..."
+    git clone https://github.com/Martin212038201938/PoN2.git pon2
+    cd ~/pon2
+    git checkout claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
 fi
-
-# Clone repository
-echo "📥 Cloning repository..."
-git clone https://github.com/Martin212038201938/PoN2.git pon2
-cd ~/pon2
 
 # Install dependencies
 echo "📦 Installing dependencies (this may take a while)..."
+cd ~/pon2/backend
 npm install
 
 # Create backend .env
 echo "🔧 Creating backend .env file..."
 cat > backend/.env << 'ENVEOF'
 # Database
-DATABASE_URL="postgresql://y-b_pon2:hHHUGGNMPOewGrtTh467642gKhthwhj75fs3h9@postgresql-y-b.alwaysdata.net:5432/y-b_pon2_production?schema=public"
-
-# Redis (optional - disable if not available)
-REDIS_HOST="localhost"
-REDIS_PORT=6379
-REDIS_PASSWORD=""
+DATABASE_URL="postgresql://y-b_pon:Schwyz_6436!@postgresql-y-b.alwaysdata.net:5432/y-b_pon2_production"
 
 # Server
-HOST=0.0.0.0
 PORT=8080
-NODE_ENV="production"
-CORS_ORIGIN="https://pon2.yellow-plane.com"
+NODE_ENV=production
 
 # JWT
-JWT_SECRET="57UjURKALW2kWtGA/5Z54nrLZLB93NodmFwPShIx8Ao="
+JWT_SECRET="57uJuRKALW2kWtGA/5Z54nrLZL893NodmFwPShIx8Ao="
 JWT_EXPIRES_IN="7d"
 
 # AI Services - REPLACE WITH YOUR ACTUAL KEYS
