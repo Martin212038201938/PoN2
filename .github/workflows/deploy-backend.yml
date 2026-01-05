@@ -25,6 +25,12 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           script: |
             cd ~
+            # Remove existing directory if it's not a git repo
+            if [ -d ~/pon2 ] && [ ! -d ~/pon2/.git ]; then
+              echo "Removing invalid pon2 directory..."
+              rm -rf ~/pon2
+            fi
+            
             if [ -d ~/pon2/.git ]; then
               echo "Updating existing repository..."
               cd ~/pon2
