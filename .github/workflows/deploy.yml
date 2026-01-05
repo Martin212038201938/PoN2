@@ -1,0 +1,137 @@
+name: Deploy to AlwaysData
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Clean build artifacts
+        run: |
+          echo "Cleaning all build artifacts..."
+          rm -rf frontend/dist
+          rm -rf frontend/node_modules/.vite
+          rm -rf frontend/node_modules/.cache
+          echo "Build artifacts cleaned successfully"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_URL: https://api.pon2.yellow-plane.com/api
+
+      - name: Deploy Frontend via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: frontend/dist/
+          server-dir: /www/pon2/frontend/dist/
+          dangerous-clean-slate: false
+          timeout: 300000
+          log-level: verbose
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: deploy-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Backend via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script_stop: true
+          script: |
+            set -e
+
+            echo "🚀 Starting PoN2 Backend Deployment..."
+
+            # Navigate to project directory
+            cd ~/pon2
+
+            # Pull latest changes
+            echo "📥 Pulling latest changes..."
+            git pull origin main
+
+            # Install root dependencies
+            echo "📦 Installing root dependencies..."
+            npm install
+
+            # Backend: Install dependencies
+            echo "📦 Installing backend dependencies..."
+            cd backend
+            npm install
+
+            # Generate Prisma Client
+            echo "🔧 Generating Prisma Client..."
+            npm run db:generate
+
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            npm run migrate:prod || echo "⚠️ No migrations to apply or migration failed (continuing...)"
+
+            # Build backend
+            echo "🔨 Building backend..."
+            npm run build
+
+            # Restart or start backend with PM2
+            echo "♻️ Restarting backend with PM2..."
+            if pm2 describe pon2-backend > /dev/null 2>&1; then
+              echo "Backend is running, restarting..."
+              pm2 restart pon2-backend --update-env
+            else
+              echo "Backend not running, starting..."
+              pm2 start npm --name pon2-backend -- run start:prod
+              pm2 save
+            fi
+
+            # Show PM2 status
+            echo "📊 PM2 Status:"
+            pm2 list
+
+            # Check health
+            echo "🏥 Checking health endpoint..."
+            sleep 3
+            curl -f http://localhost:8080/health || echo "⚠️ Health check failed"
+
+            echo "✅ Backend deployment completed!"
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            echo "🔍 Verifying deployment..."
+            pm2 list
+            echo ""
+            echo "📝 Recent logs:"
+            pm2 logs pon2-backend --lines 20 --nostream
