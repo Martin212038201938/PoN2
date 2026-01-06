@@ -9,7 +9,21 @@ echo ""
 # Install backend dependencies
 echo "📦 Installing backend dependencies..."
 cd backend
-npm install --legacy-peer-deps
+
+# CRITICAL: Install ALL dependencies (not just production)
+# Even in production environment, we need devDependencies for build process
+echo "Installing with --production=false to ensure all dependencies are installed..."
+npm install --legacy-peer-deps --production=false
+
+# Verify critical Drizzle packages are installed
+echo "🔍 Verifying Drizzle packages installation..."
+if ! npm list drizzle-orm drizzle-kit postgres 2>/dev/null | grep -q "drizzle-orm@"; then
+    echo "❌ CRITICAL: drizzle-orm not found in node_modules!"
+    echo "📋 Installed packages:"
+    npm list --depth=0 | grep drizzle || echo "No drizzle packages found!"
+    exit 1
+fi
+echo "✅ Drizzle packages verified"
 
 # Create backend .env
 echo "🔧 Creating backend .env file..."
@@ -44,9 +58,15 @@ ENVEOF
 
 # Push database schema with Drizzle
 echo "🗄️  Pushing database schema with Drizzle..."
+echo "Running: npm run db:push"
 if ! npm run db:push; then
-    echo "⚠️  Database schema push had warnings, continuing..."
+    echo "❌ CRITICAL: Database schema push failed!"
+    echo "💡 This means drizzle-kit push encountered an error."
+    echo "💡 Check if drizzle-orm and drizzle-kit are properly installed above."
+    echo "💡 Deployment cannot continue without a working database schema."
+    exit 1
 fi
+echo "✅ Database schema pushed successfully"
 
 # Build backend
 echo "🔨 Building backend..."
