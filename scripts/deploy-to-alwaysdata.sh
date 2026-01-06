@@ -83,13 +83,18 @@ else
     echo "DRIZZLE-ORM exists: $([ -d node_modules/drizzle-orm ] && echo 'YES' || echo 'NO')"
     echo "DRIZZLE-KIT exists: $([ -d node_modules/drizzle-kit ] && echo 'YES' || echo 'NO')"
 
+    # CRITICAL: Disable exit-on-error for db:push section
+    # This allows deployment to continue even if db:push fails (graceful degradation)
+    set +e
+
     # Try multiple approaches to run drizzle-kit push
     PUSH_SUCCESS=false
 
     # Approach 1: Set NODE_PATH to help module resolution in monorepo
     echo "📍 Approach 1: Using NODE_PATH for module resolution..."
     export NODE_PATH="$(pwd)/node_modules:$(pwd)/../node_modules:/home/y-b/pon2/node_modules"
-    if npm run db:push 2>&1 | tee /tmp/db-push.log; then
+    npm run db:push > /tmp/db-push.log 2>&1
+    if [ $? -eq 0 ]; then
         echo "✅ db:push succeeded with NODE_PATH"
         PUSH_SUCCESS=true
     else
@@ -97,13 +102,17 @@ else
 
         # Approach 2: Use npx with explicit --prefix
         echo "📍 Approach 2: Using npx drizzle-kit directly..."
-        if npx drizzle-kit push 2>&1 | tee /tmp/db-push.log; then
+        npx drizzle-kit push > /tmp/db-push.log 2>&1
+        if [ $? -eq 0 ]; then
             echo "✅ db:push succeeded with npx"
             PUSH_SUCCESS=true
         else
             echo "⚠️  Approach 2 failed"
         fi
     fi
+
+    # Re-enable exit-on-error for subsequent commands
+    set -e
 
     # Check if any approach succeeded
     if [ "$PUSH_SUCCESS" = "false" ]; then
@@ -139,10 +148,11 @@ else
             echo ""
         else
             echo "📋 Last 20 lines of db:push output:"
-            cat /tmp/db-push.log | tail -20
+            cat /tmp/db-push.log 2>/dev/null | tail -20 || echo "Log file not found"
             echo ""
-            echo "❌ ABORTING: Unknown db:push error"
-            exit 1
+            echo "⚠️  CONTINUING DEPLOYMENT despite db:push error"
+            echo "   Backend will attempt to connect to existing database schema"
+            echo ""
         fi
     else
         echo "✅ Database schema pushed successfully"
