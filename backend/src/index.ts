@@ -15,9 +15,34 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-// Load .env from backend directory (works with both development and production)
-// In production, PM2 runs from monorepo root (~/pon2), so we need to specify the path
-dotenv.config({ path: path.join(process.cwd(), 'backend', '.env') });
+// Load .env file with multiple fallback strategies
+// This handles both development (cwd = backend/) and production (cwd = monorepo root)
+const envPaths = [
+  path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
+  path.join(process.cwd(), '.env'),              // Direct run from backend/
+  path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (require('fs').existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log(`✅ Loaded .env from: ${envPath}`);
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn('⚠️  No .env file found! Using environment variables from PM2/shell');
+}
+
+// Verify critical environment variables
+if (!process.env.DATABASE_URL) {
+  console.error('❌ CRITICAL: DATABASE_URL not set!');
+  console.error('   Searched paths:', envPaths);
+  process.exit(1);
+}
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
