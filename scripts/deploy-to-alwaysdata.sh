@@ -70,92 +70,51 @@ DEFAULT_MAX_API_CALLS_PER_SOURCE=50
 LOG_LEVEL="info"
 ENVEOF
 
-# Push database schema with Drizzle
-echo "🗄️  Database schema migration..."
+# Initialize database schema with Drizzle
+echo "🗄️  Database schema initialization..."
 
-if [ "$SKIP_DB_PUSH" = "true" ]; then
-    echo "⏭️  Skipping db:push (SKIP_DB_PUSH=true)"
+if [ "$SKIP_DB_INIT" = "true" ]; then
+    echo "⏭️  Skipping db:init (SKIP_DB_INIT=true)"
     echo "💡 Assuming database schema is already up to date"
 else
-    echo "Attempting to push database schema with Drizzle..."
-    echo "PWD: $(pwd)"
-    echo "NODE_MODULES exists: $([ -d node_modules ] && echo 'YES' || echo 'NO')"
-    echo "DRIZZLE-ORM exists: $([ -d node_modules/drizzle-orm ] && echo 'YES' || echo 'NO')"
-    echo "DRIZZLE-KIT exists: $([ -d node_modules/drizzle-kit ] && echo 'YES' || echo 'NO')"
+    echo "Initializing database schema via Node.js script..."
+    echo "This uses postgres.js directly, no psql or drizzle-kit needed!"
+    echo ""
 
-    # CRITICAL: Disable exit-on-error for db:push section
-    # This allows deployment to continue even if db:push fails (graceful degradation)
+    # CRITICAL: Disable exit-on-error for db:init section
+    # This allows deployment to continue even if db:init fails (graceful degradation)
     set +e
 
-    # Try multiple approaches to run drizzle-kit push
-    PUSH_SUCCESS=false
-
-    # Approach 1: Set NODE_PATH to help module resolution in monorepo
-    echo "📍 Approach 1: Using NODE_PATH for module resolution..."
-    export NODE_PATH="$(pwd)/node_modules:$(pwd)/../node_modules:/home/y-b/pon2/node_modules"
-    npm run db:push > /tmp/db-push.log 2>&1
-    if [ $? -eq 0 ]; then
-        echo "✅ db:push succeeded with NODE_PATH"
-        PUSH_SUCCESS=true
-    else
-        echo "⚠️  Approach 1 failed, trying approach 2..."
-
-        # Approach 2: Use npx with explicit --prefix
-        echo "📍 Approach 2: Using npx drizzle-kit directly..."
-        npx drizzle-kit push > /tmp/db-push.log 2>&1
-        if [ $? -eq 0 ]; then
-            echo "✅ db:push succeeded with npx"
-            PUSH_SUCCESS=true
-        else
-            echo "⚠️  Approach 2 failed"
-        fi
-    fi
+    # Run db:init script (uses tsx to execute TypeScript directly)
+    npm run db:init 2>&1 | tee /tmp/db-init.log
+    DB_INIT_EXIT_CODE=$?
 
     # Re-enable exit-on-error for subsequent commands
     set -e
 
-    # Check if any approach succeeded
-    if [ "$PUSH_SUCCESS" = "false" ]; then
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "⚠️  WARNING: Database schema push failed"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "This is a known issue with drizzle-kit in npm workspaces monorepo."
-        echo ""
-        echo "💡 WORKAROUND OPTIONS:"
-        echo ""
-        echo "1. If this is an initial deployment, the schema MUST be pushed manually:"
-        echo "   - Connect to AlwaysData SSH"
-        echo "   - cd ~/pon2/backend"
-        echo "   - export NODE_PATH=\$(pwd)/node_modules:\$(pwd)/../node_modules"
-        echo "   - npm run db:push"
-        echo ""
-        echo "2. If the schema already exists in the database:"
-        echo "   - The deployment can continue (backend will connect to existing schema)"
-        echo "   - Re-run deployment with: SKIP_DB_PUSH=true ./deploy-to-alwaysdata.sh"
-        echo ""
-        echo "3. Schema changes should be tested locally and pushed via SSH"
-        echo ""
-
-        # Check if we should continue or abort
-        if grep -q "please install required packages" /tmp/db-push.log 2>/dev/null; then
-            echo "📋 Error from drizzle-kit:"
-            grep "Error" /tmp/db-push.log || cat /tmp/db-push.log | tail -20
-            echo ""
-            echo "⚠️  CONTINUING DEPLOYMENT (assuming schema exists in database)"
-            echo "   If backend fails to start, push schema manually as shown above."
-            echo ""
-        else
-            echo "📋 Last 20 lines of db:push output:"
-            cat /tmp/db-push.log 2>/dev/null | tail -20 || echo "Log file not found"
-            echo ""
-            echo "⚠️  CONTINUING DEPLOYMENT despite db:push error"
-            echo "   Backend will attempt to connect to existing database schema"
-            echo ""
-        fi
+    echo ""
+    if [ $DB_INIT_EXIT_CODE -eq 0 ]; then
+        echo "✅ Database schema initialized successfully"
     else
-        echo "✅ Database schema pushed successfully"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "⚠️  WARNING: Database schema initialization failed"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "Exit code: $DB_INIT_EXIT_CODE"
+        echo ""
+        echo "💡 POSSIBLE CAUSES:"
+        echo "   1. Database connection issues (check DATABASE_URL in .env)"
+        echo "   2. Database permissions insufficient"
+        echo "   3. Schema already exists (this is OK, script is idempotent)"
+        echo ""
+        echo "💡 MANUAL WORKAROUND:"
+        echo "   If this is the first deployment, you can manually run:"
+        echo "   cd ~/pon2/backend && npm run db:init"
+        echo ""
+        echo "⚠️  CONTINUING DEPLOYMENT despite db:init error"
+        echo "   If schema already exists, backend should start normally."
+        echo "   If backend fails, check logs: pm2 logs pon2-backend"
+        echo ""
     fi
 fi
 

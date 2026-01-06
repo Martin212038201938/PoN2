@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:prod": "NODE_ENV=production node dist/index.js",
+    "db:init": "tsx scripts/init-schema.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
