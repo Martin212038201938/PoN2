@@ -149,10 +149,24 @@ fi
 
 # Start backend with PM2
 echo "🚀 Starting backend with PM2..."
-cd ../backend
+# CRITICAL: In a monorepo, PM2 must be started from the ROOT directory
+# We use --cwd to specify where the process should run, but execute pm2 from root
+cd ~/pon2  # Go back to project root
+
+# Delete existing PM2 process if it exists
 pm2 delete pon2-backend 2>/dev/null || true
-pm2 start npm --name pon2-backend -- run start:prod
+
+# Start backend with correct working directory
+# --cwd sets the working directory for the process
+# This ensures npm can find the workspace @pon2/backend
+pm2 start npm --name pon2-backend --cwd ~/pon2/backend -- run start:prod
+
+# Save PM2 process list
 pm2 save
+
+echo ""
+echo "📊 PM2 Process Details:"
+pm2 show pon2-backend
 
 # Show status
 echo ""
