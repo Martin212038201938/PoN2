@@ -7,9 +7,7 @@ echo ""
 # We're already in ~/pon2 directory when this script is called
 
 # Set Prisma environment variables to avoid permission issues
-export PRISMA_QUERY_ENGINE_LIBRARY="$(pwd)/backend/node_modules/.prisma/client/libquery_engine-debian-openssl-1.0.x.so.node"
 export PRISMA_CLI_BINARY_TARGETS="debian-openssl-1.0.x"
-export PRISMA_SKIP_POSTINSTALL_GENERATE=1
 
 # Install backend dependencies
 echo "📦 Installing backend dependencies..."
@@ -47,18 +45,32 @@ DEFAULT_MAX_API_CALLS_PER_SOURCE=50
 LOG_LEVEL="info"
 ENVEOF
 
-# Initialize database with Prisma (skip cache issues)
-echo "🗄️  Initializing database with Prisma..."
-# Generate Prisma client without using cache
-PRISMA_GENERATE_SKIP_AUTOINSTALL=1 npx prisma generate --generator client || echo "Prisma generate had issues, trying db push directly..."
+# Generate Prisma client explicitly
+echo "🔧 Generating Prisma client..."
+if ! npx prisma generate; then
+    echo "❌ Prisma client generation failed!"
+    echo "💡 Troubleshooting tips:"
+    echo "   1. Check internet connectivity"
+    echo "   2. Verify DATABASE_URL is set correctly"
+    echo "   3. Try: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1 npx prisma generate"
+    exit 1
+fi
 
 # Push database schema
 echo "🗄️  Pushing database schema..."
-npx prisma db push --accept-data-loss || echo "DB push completed with warnings"
+if ! npx prisma db push --accept-data-loss --skip-generate; then
+    echo "❌ Database schema push failed!"
+    echo "💡 Check DATABASE_URL and database permissions"
+    exit 1
+fi
 
 # Build backend
 echo "🔨 Building backend..."
-npm run build || echo "Build completed with warnings"
+if ! npm run build; then
+    echo "❌ TypeScript build failed!"
+    echo "💡 Check TypeScript errors above"
+    exit 1
+fi
 
 # Install frontend dependencies and build
 echo "🎨 Building frontend..."
