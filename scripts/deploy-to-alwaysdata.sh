@@ -149,17 +149,29 @@ fi
 
 # Start backend with PM2
 echo "🚀 Starting backend with PM2..."
-# CRITICAL: In a monorepo, PM2 must be started from the ROOT directory
-# We use --cwd to specify where the process should run, but execute pm2 from root
+# CRITICAL: In a monorepo, we start PM2 from ROOT and point directly to the built JS file
+# This avoids npm workspace resolution issues entirely
 cd ~/pon2  # Go back to project root
 
 # Delete existing PM2 process if it exists
 pm2 delete pon2-backend 2>/dev/null || true
 
-# Start backend with correct working directory
-# --cwd sets the working directory for the process
-# This ensures npm can find the workspace @pon2/backend
-pm2 start npm --name pon2-backend --cwd ~/pon2/backend -- run start:prod
+# Verify the built file exists
+if [ ! -f "backend/dist/index.js" ]; then
+    echo "❌ ERROR: backend/dist/index.js not found!"
+    echo "   Build may have failed. Check build output above."
+    exit 1
+fi
+
+echo "✅ Built file found: backend/dist/index.js"
+
+# Start backend with PM2 pointing directly to the built file
+# --cwd sets the working directory (for .env file, relative imports, etc.)
+# We use NODE_ENV=production as an environment variable
+pm2 start backend/dist/index.js \
+    --name pon2-backend \
+    --cwd ~/pon2/backend \
+    --env production
 
 # Save PM2 process list
 pm2 save
