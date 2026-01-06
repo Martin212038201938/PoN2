@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UserRole } from '@prisma/client';
+import { users } from '../db/schema';
+
+type UserRole = typeof users.$inferSelect.role;
 
 export interface AuthRequest extends Request {
   user?: {
@@ -59,4 +61,4 @@ export const requireRole = (...roles: UserRole[]) => {
   };
 };
 
-export const requireAdmin = requireRole(UserRole.ADMIN);
+export const requireAdmin = requireRole('ADMIN');

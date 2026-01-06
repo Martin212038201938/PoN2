@@ -2,7 +2,8 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { sql } from 'drizzle-orm';
+import { db, client } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import caseRoutes from './routes/case.routes';
@@ -19,10 +20,8 @@ const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Initialize Prisma Client
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-});
+// Export db for use in other modules
+export { db };
 
 // Middleware
 app.use(helmet());
@@ -34,7 +33,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
     userAgent: req.get('user-agent'),
@@ -43,10 +42,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Health check
-app.get('/health', async (req: Request, res: Response) => {
+app.get('/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
+    await db.execute(sql`SELECT 1`);
 
     res.json({
       status: 'ok',
@@ -79,12 +78,12 @@ app.use('/api/integrations', integrationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   logger.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',
@@ -95,20 +94,21 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
-  await prisma.$disconnect();
+  await client.end();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  await prisma.$disconnect();
+  await client.end();
   process.exit(0);
 });
 
 // Start server
 async function startServer() {
   try {
-    await prisma.$connect();
+    // Test database connection
+    await db.execute(sql`SELECT 1`);
     logger.info('Database connected successfully');
 
     app.listen(PORT, HOST, () => {
