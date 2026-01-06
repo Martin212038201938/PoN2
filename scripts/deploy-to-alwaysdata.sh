@@ -8,6 +8,8 @@ echo ""
 
 # Set Prisma environment variables to avoid permission issues
 export PRISMA_CLI_BINARY_TARGETS="debian-openssl-1.0.x"
+export PRISMA_SKIP_POSTINSTALL_GENERATE=true
+export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 
 # Install backend dependencies
 echo "📦 Installing backend dependencies..."
@@ -45,14 +47,16 @@ DEFAULT_MAX_API_CALLS_PER_SOURCE=50
 LOG_LEVEL="info"
 ENVEOF
 
-# Generate Prisma client explicitly
+# Generate Prisma client explicitly with proper environment variables
 echo "🔧 Generating Prisma client..."
+export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+export PRISMA_SKIP_POSTINSTALL_GENERATE=true
 if ! npx prisma generate; then
     echo "❌ Prisma client generation failed!"
     echo "💡 Troubleshooting tips:"
     echo "   1. Check internet connectivity"
     echo "   2. Verify DATABASE_URL is set correctly"
-    echo "   3. Try: PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1 npx prisma generate"
+    echo "   3. Check Prisma cache permissions"
     exit 1
 fi
 
