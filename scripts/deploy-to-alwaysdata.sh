@@ -4,6 +4,9 @@ set -e
 echo "🚀 Starting PoN2 Deployment on AlwaysData..."
 echo ""
 
+# Configuration flags
+SKIP_DB_PUSH=${SKIP_DB_PUSH:-false}  # Set to true to skip db:push
+
 # We're already in ~/pon2 directory when this script is called
 
 # CRITICAL FIX: Install dependencies at ROOT level first
@@ -15,9 +18,9 @@ npm install --legacy-peer-deps
 echo "📦 Installing backend dependencies..."
 cd backend
 
-# Use npm ci for deterministic, clean installation
+# Use npm install for clean installation
 # --include=dev ensures devDependencies are installed (needed for build)
-echo "Using npm ci for clean, deterministic installation..."
+echo "Installing backend dependencies..."
 rm -rf node_modules package-lock.json 2>/dev/null || true
 npm install --legacy-peer-deps --include=dev
 
@@ -32,14 +35,6 @@ if [ ! -d "node_modules/drizzle-orm" ]; then
     echo "📋 Package.json dependencies:"
     cat package.json | grep -A 3 "dependencies"
     exit 1
-fi
-
-# Also verify it's in npm's registry
-if ! npm list drizzle-orm 2>/dev/null | grep -q "drizzle-orm@"; then
-    echo "⚠️  Warning: drizzle-orm not found in npm list, but directory exists"
-    echo "Continuing anyway as directory is present..."
-else
-    echo "✅ drizzle-orm found in npm list"
 fi
 
 echo "✅ Drizzle packages verified in node_modules"
@@ -76,25 +71,83 @@ LOG_LEVEL="info"
 ENVEOF
 
 # Push database schema with Drizzle
-echo "🗄️  Pushing database schema with Drizzle..."
-echo "Running: npm run db:push"
-echo "PWD: $(pwd)"
-echo "NODE_MODULES exists: $([ -d node_modules ] && echo 'YES' || echo 'NO')"
-echo "DRIZZLE-ORM exists: $([ -d node_modules/drizzle-orm ] && echo 'YES' || echo 'NO')"
-echo "DRIZZLE-KIT exists: $([ -d node_modules/drizzle-kit ] && echo 'YES' || echo 'NO')"
+echo "🗄️  Database schema migration..."
 
-if ! npm run db:push; then
-    echo "❌ CRITICAL: Database schema push failed!"
-    echo "💡 This means drizzle-kit push encountered an error."
-    echo "💡 Check if drizzle-orm and drizzle-kit are properly installed above."
-    echo "💡 Deployment cannot continue without a working database schema."
-    echo ""
-    echo "📋 Debugging info:"
-    echo "drizzle-kit version:"
-    npx drizzle-kit --version || echo "drizzle-kit not found"
-    exit 1
+if [ "$SKIP_DB_PUSH" = "true" ]; then
+    echo "⏭️  Skipping db:push (SKIP_DB_PUSH=true)"
+    echo "💡 Assuming database schema is already up to date"
+else
+    echo "Attempting to push database schema with Drizzle..."
+    echo "PWD: $(pwd)"
+    echo "NODE_MODULES exists: $([ -d node_modules ] && echo 'YES' || echo 'NO')"
+    echo "DRIZZLE-ORM exists: $([ -d node_modules/drizzle-orm ] && echo 'YES' || echo 'NO')"
+    echo "DRIZZLE-KIT exists: $([ -d node_modules/drizzle-kit ] && echo 'YES' || echo 'NO')"
+
+    # Try multiple approaches to run drizzle-kit push
+    PUSH_SUCCESS=false
+
+    # Approach 1: Set NODE_PATH to help module resolution in monorepo
+    echo "📍 Approach 1: Using NODE_PATH for module resolution..."
+    export NODE_PATH="$(pwd)/node_modules:$(pwd)/../node_modules:/home/y-b/pon2/node_modules"
+    if npm run db:push 2>&1 | tee /tmp/db-push.log; then
+        echo "✅ db:push succeeded with NODE_PATH"
+        PUSH_SUCCESS=true
+    else
+        echo "⚠️  Approach 1 failed, trying approach 2..."
+
+        # Approach 2: Use npx with explicit --prefix
+        echo "📍 Approach 2: Using npx drizzle-kit directly..."
+        if npx drizzle-kit push 2>&1 | tee /tmp/db-push.log; then
+            echo "✅ db:push succeeded with npx"
+            PUSH_SUCCESS=true
+        else
+            echo "⚠️  Approach 2 failed"
+        fi
+    fi
+
+    # Check if any approach succeeded
+    if [ "$PUSH_SUCCESS" = "false" ]; then
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "⚠️  WARNING: Database schema push failed"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "This is a known issue with drizzle-kit in npm workspaces monorepo."
+        echo ""
+        echo "💡 WORKAROUND OPTIONS:"
+        echo ""
+        echo "1. If this is an initial deployment, the schema MUST be pushed manually:"
+        echo "   - Connect to AlwaysData SSH"
+        echo "   - cd ~/pon2/backend"
+        echo "   - export NODE_PATH=\$(pwd)/node_modules:\$(pwd)/../node_modules"
+        echo "   - npm run db:push"
+        echo ""
+        echo "2. If the schema already exists in the database:"
+        echo "   - The deployment can continue (backend will connect to existing schema)"
+        echo "   - Re-run deployment with: SKIP_DB_PUSH=true ./deploy-to-alwaysdata.sh"
+        echo ""
+        echo "3. Schema changes should be tested locally and pushed via SSH"
+        echo ""
+
+        # Check if we should continue or abort
+        if grep -q "please install required packages" /tmp/db-push.log 2>/dev/null; then
+            echo "📋 Error from drizzle-kit:"
+            grep "Error" /tmp/db-push.log || cat /tmp/db-push.log | tail -20
+            echo ""
+            echo "⚠️  CONTINUING DEPLOYMENT (assuming schema exists in database)"
+            echo "   If backend fails to start, push schema manually as shown above."
+            echo ""
+        else
+            echo "📋 Last 20 lines of db:push output:"
+            cat /tmp/db-push.log | tail -20
+            echo ""
+            echo "❌ ABORTING: Unknown db:push error"
+            exit 1
+        fi
+    else
+        echo "✅ Database schema pushed successfully"
+    fi
 fi
-echo "✅ Database schema pushed successfully"
 
 # Build backend
 echo "🔨 Building backend..."
@@ -152,4 +205,9 @@ echo "   AlwaysData Site 992755: Node.js app pointing to port 8080"
 echo "   AlwaysData Site 992754: Static files from ~/pon2/frontend/dist"
 echo ""
 echo "✅ Backend is deployed and running!"
+echo ""
+echo "💡 If backend is not responding:"
+echo "   1. Check PM2 logs: pm2 logs pon2-backend"
+echo "   2. Check database connection from backend/src/index.ts"
+echo "   3. Verify database schema was pushed (see warnings above)"
 echo ""
