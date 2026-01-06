@@ -2,6 +2,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import { sql } from 'drizzle-orm';
 import { db, client } from './db';
 import logger from './utils/logger';
@@ -14,7 +15,9 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-dotenv.config();
+// Load .env from backend directory (works with both development and production)
+// In production, PM2 runs from monorepo root (~/pon2), so we need to specify the path
+dotenv.config({ path: path.join(process.cwd(), 'backend', '.env') });
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);

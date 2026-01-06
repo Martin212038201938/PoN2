@@ -166,11 +166,12 @@ fi
 echo "✅ Built file found: backend/dist/index.js"
 
 # Start backend with PM2 pointing directly to the built file
-# --cwd sets the working directory (for .env file, relative imports, etc.)
-# We use NODE_ENV=production as an environment variable
+# --cwd sets the working directory to the monorepo ROOT
+# The path backend/dist/index.js is relative to the cwd (~/pon2)
+# .env file is in ~/pon2/backend, so the app will need to find it via relative path
 pm2 start backend/dist/index.js \
     --name pon2-backend \
-    --cwd ~/pon2/backend \
+    --cwd ~/pon2 \
     --env production
 
 # Save PM2 process list
