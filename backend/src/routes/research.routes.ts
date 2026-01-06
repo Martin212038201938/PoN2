@@ -5,7 +5,7 @@ const router = Router();
 router.use(authenticate);
 
 // TODO: Implement research routes
-router.post('/start-wave', (req, res) => res.json({ message: 'Not implemented' }));
-router.get('/artifacts/:id', (req, res) => res.json({ artifact: null }));
+router.post('/start-wave', (_req, res) => res.json({ message: 'Not implemented' }));
+router.get('/artifacts/:id', (_req, res) => res.json({ artifact: null }));
 
 export default router;

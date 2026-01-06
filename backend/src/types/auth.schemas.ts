@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { UserRole } from '@prisma/client';
+
+const UserRole = {
+  DETECTIVE: 'DETECTIVE',
+  ADMIN: 'ADMIN',
+} as const;
 
 export const registerSchema = z.object({
   body: z.object({

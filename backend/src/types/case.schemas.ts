@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { CaseStatus } from '@prisma/client';
+
+const CaseStatus = {
+  NEW: 'NEW',
+  IN_RESEARCH: 'IN_RESEARCH',
+  WAITING_FOR_RESPONSE: 'WAITING_FOR_RESPONSE',
+  HEIRS_IDENTIFIED: 'HEIRS_IDENTIFIED',
+  SUCCESSFULLY_SOLVED: 'SUCCESSFULLY_SOLVED',
+  CLOSED_WITHOUT_SUCCESS: 'CLOSED_WITHOUT_SUCCESS',
+  ON_HOLD: 'ON_HOLD',
+} as const;
 
 export const createCaseSchema = z.object({
   body: z.object({

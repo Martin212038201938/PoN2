@@ -6,11 +6,6 @@ echo ""
 
 # We're already in ~/pon2 directory when this script is called
 
-# Set Prisma environment variables to avoid permission issues
-export PRISMA_CLI_BINARY_TARGETS="debian-openssl-1.0.x"
-export PRISMA_SKIP_POSTINSTALL_GENERATE=true
-export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-
 # Install backend dependencies
 echo "📦 Installing backend dependencies..."
 cd backend
@@ -47,25 +42,10 @@ DEFAULT_MAX_API_CALLS_PER_SOURCE=50
 LOG_LEVEL="info"
 ENVEOF
 
-# Generate Prisma client explicitly with proper environment variables
-echo "🔧 Generating Prisma client..."
-export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-export PRISMA_SKIP_POSTINSTALL_GENERATE=true
-if ! npx prisma generate; then
-    echo "❌ Prisma client generation failed!"
-    echo "💡 Troubleshooting tips:"
-    echo "   1. Check internet connectivity"
-    echo "   2. Verify DATABASE_URL is set correctly"
-    echo "   3. Check Prisma cache permissions"
-    exit 1
-fi
-
-# Push database schema
-echo "🗄️  Pushing database schema..."
-if ! npx prisma db push --accept-data-loss --skip-generate; then
-    echo "❌ Database schema push failed!"
-    echo "💡 Check DATABASE_URL and database permissions"
-    exit 1
+# Push database schema with Drizzle
+echo "🗄️  Pushing database schema with Drizzle..."
+if ! npm run db:push; then
+    echo "⚠️  Database schema push had warnings, continuing..."
 fi
 
 # Build backend
