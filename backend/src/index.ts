@@ -2,8 +2,8 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { sql } from 'drizzle-orm';
-import { db, client } from './db';
+import path from 'path';
+import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import caseRoutes from './routes/case.routes';
@@ -14,7 +14,34 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-dotenv.config();
+// Load .env file with multiple fallback strategies
+// This handles both development (cwd = backend/) and production (cwd = monorepo root)
+const envPaths = [
+  path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
+  path.join(process.cwd(), '.env'),              // Direct run from backend/
+  path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (require('fs').existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log(`✅ Loaded .env from: ${envPath}`);
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn('⚠️  No .env file found! Using environment variables from PM2/shell');
+}
+
+// Verify critical environment variables
+if (!process.env.DATABASE_URL) {
+  console.error('❌ CRITICAL: DATABASE_URL not set!');
+  console.error('   Searched paths:', envPaths);
+  process.exit(1);
+}
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -45,7 +72,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 app.get('/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection
-    await db.execute(sql`SELECT 1`);
+    await pool.query('SELECT 1');
 
     res.json({
       status: 'ok',
@@ -94,22 +121,23 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
-  await client.end();
+  await pool.end();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  await client.end();
+  await pool.end();
   process.exit(0);
 });
 
 // Start server
 async function startServer() {
   try {
-    // Test database connection
-    await db.execute(sql`SELECT 1`);
-    logger.info('Database connected successfully');
+    // Test database connection with a simple query
+    logger.info('Testing database connection...');
+    await pool.query('SELECT 1');
+    logger.info('✅ Database connected successfully');
 
     app.listen(PORT, HOST, () => {
       logger.info(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
