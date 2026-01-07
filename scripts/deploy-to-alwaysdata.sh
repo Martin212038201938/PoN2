@@ -43,7 +43,8 @@ echo "✅ Drizzle packages verified in node_modules"
 echo "🔧 Creating backend .env file..."
 cat > .env << 'ENVEOF'
 # Database
-DATABASE_URL="postgresql://y-b_pon:Schwyz_6436!@postgresql-y-b.alwaysdata.net:5432/y-b_pon2_production"
+# Note: Password with special characters will be automatically URL-encoded by the backend
+DATABASE_URL="postgresql://y-b:xXksidHK_.Uk7s77d_32!@postgresql-y-b.alwaysdata.net:5432/y-b_pon2_production"
 
 # Server
 PORT=8080
