@@ -72,7 +72,13 @@ function sanitizeConnectionString(url: string): string {
 const connectionString = sanitizeConnectionString(rawConnectionString);
 
 // Disable prefetch as it is not supported for "Transaction" pool mode
-export const client = postgres(connectionString, { prepare: false });
+// Enable SSL for AlwaysData PostgreSQL (required for remote connections)
+export const client = postgres(connectionString, {
+  prepare: false,
+  ssl: 'require',  // AlwaysData requires SSL connections
+  // Alternative if 'require' doesn't work:
+  // ssl: { rejectUnauthorized: false }
+});
 export const db = drizzle(client, { schema });
 
 // Helper function to generate CUID IDs (compatible with Prisma's cuid)
