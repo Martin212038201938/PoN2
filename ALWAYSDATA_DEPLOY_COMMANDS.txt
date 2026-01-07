@@ -1,0 +1,58 @@
+# ========================================
+# ALWAYSDATA DEPLOYMENT COMMANDS
+# Copy and paste these commands directly into your AlwaysData SSH terminal
+# ========================================
+
+# Step 1: Navigate to project and pull latest changes
+cd ~/pon2
+git pull origin claude/migrate-prisma-to-drizzle-opqvS
+
+# Step 2: Verify the fix is in source code
+echo ""
+echo "🔍 Checking if fix is in source code..."
+grep "PostgreSQL connection pool created" backend/src/db/index.ts
+# You should see: console.log('✅ PostgreSQL connection pool created');
+
+# Step 3: Clean old build
+echo ""
+echo "🧹 Cleaning old build..."
+cd backend
+rm -rf dist/
+npm run build
+
+# Step 4: Verify fix is in compiled code
+echo ""
+echo "🔍 Checking if fix is in compiled code..."
+grep "PostgreSQL connection pool created" dist/db/index.js
+# Should find the console.log statement
+
+# Step 5: Restart PM2
+echo ""
+echo "🔄 Restarting PM2..."
+cd ~/pon2
+pm2 delete pon2-backend
+pm2 start backend/dist/index.js --name pon2-backend --cwd ~/pon2 --env production --time
+pm2 save
+
+# Step 6: Wait and check logs
+echo ""
+echo "⏳ Waiting 5 seconds for startup..."
+sleep 5
+pm2 logs pon2-backend --lines 50
+
+# ========================================
+# IMPORTANT: Look for these 3 critical messages in the logs:
+# 1. "Testing database connection..."
+# 2. "✅ Database connected successfully"
+# 3. "🚀 PoN2 Backend API running on 0.0.0.0:8080"
+# ========================================
+
+# Step 7: Test API (in another terminal or after logs)
+curl -i https://api.pon2.yellow-plane.com/api/health
+# Should return: HTTP/1.1 200 OK
+
+# ========================================
+# ODER: Automatisches Deployment-Script ausführen
+# ========================================
+# Alternative: Wenn du das Script verwenden möchtest:
+bash ~/pon2/deploy-race-condition-fix.sh
