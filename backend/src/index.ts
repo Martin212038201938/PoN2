@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
-import { sql } from 'drizzle-orm';
 import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
@@ -73,7 +72,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 app.get('/health', async (_req: Request, res: Response) => {
   try {
     // Check database connection
-    await db.execute(sql`SELECT 1`);
+    await pool.query('SELECT 1');
 
     res.json({
       status: 'ok',
@@ -135,9 +134,10 @@ process.on('SIGTERM', async () => {
 // Start server
 async function startServer() {
   try {
-    // Test database connection
-    await db.execute(sql`SELECT 1`);
-    logger.info('Database connected successfully');
+    // Test database connection with a simple query
+    logger.info('Testing database connection...');
+    await pool.query('SELECT 1');
+    logger.info('✅ Database connected successfully');
 
     app.listen(PORT, HOST, () => {
       logger.info(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
