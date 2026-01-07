@@ -1,11 +1,37 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { createId } from '@paralleldrive/cuid2';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import * as schema from './schema';
+
+// CRITICAL: Load .env BEFORE accessing process.env.DATABASE_URL
+// This module is imported before index.ts runs dotenv.config()
+const envPaths = [
+  path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
+  path.join(process.cwd(), '.env'),              // Direct run from backend/
+  path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn('⚠️  db/index.ts: No .env file found! Using environment variables from PM2/shell');
+}
 
 const rawConnectionString = process.env.DATABASE_URL;
 
 if (!rawConnectionString) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  console.error('   Searched .env paths:', envPaths);
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
