@@ -70,15 +70,7 @@ export const pool = new Pool({
   application_name: 'pon2-backend',
 });
 
-// Test the connection immediately
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('❌ Database connection test FAILED:', err.message);
-  } else {
-    console.log('✅ Database connection test SUCCESSFUL');
-    console.log(`   Server time: ${res.rows[0].now}`);
-  }
-});
+console.log('✅ PostgreSQL connection pool created');
 
 // Create Drizzle instance with node-postgres
 export const db = drizzle(pool, { schema });
