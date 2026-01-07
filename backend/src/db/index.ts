@@ -71,42 +71,36 @@ function sanitizeConnectionString(url: string): string {
 
 const connectionString = sanitizeConnectionString(rawConnectionString);
 
-// Disable prefetch as it is not supported for "Transaction" pool mode
-// Enable SSL for AlwaysData PostgreSQL (required for remote connections)
-// Add robust timeout and keep-alive configuration for production
+// Production-ready postgres.js configuration for AlwaysData
 export const client = postgres(connectionString, {
+  // Disable prepared statements (not compatible with some poolers)
   prepare: false,
 
-  // SSL Configuration
-  ssl: { rejectUnauthorized: false },  // AlwaysData SSL with self-signed cert
+  // SSL is required for AlwaysData
+  ssl: 'require',
 
-  // Connection Timeouts (in seconds)
-  connect_timeout: 10,           // 10 seconds to establish connection
-  idle_timeout: 30,              // Close idle connections after 30 seconds
-  max_lifetime: 60 * 30,         // Max connection lifetime: 30 minutes
+  // Connection timeout (in seconds)
+  connect_timeout: 10,
 
-  // TCP Keep-Alive (prevents connection drops)
-  keepalives: 1,                 // Enable TCP keep-alive
-  keepalives_idle: 10,           // Wait 10 seconds before first keep-alive
+  // Connection pool settings
+  max: 10,
+  idle_timeout: 20,
 
-  // Connection Pool
-  max: 10,                       // Max 10 concurrent connections
-
-  // PostgreSQL Session Settings
-  options: {
-    statement_timeout: 30000,                        // 30 seconds per statement
-    idle_in_transaction_session_timeout: 60000,      // 60 seconds for idle transactions
+  // Transform functions to ensure proper data handling
+  transform: {
+    undefined: null,
   },
 
-  // Debug mode (remove in production if too verbose)
-  debug: process.env.NODE_ENV === 'development',
+  // No debug output in production
+  debug: false,
 
-  // Error handling
-  onnotice: () => {},            // Suppress notices
-  onparameter: () => {},         // Suppress parameter changes
+  // Connection string parameters for PostgreSQL
+  connection: {
+    application_name: 'pon2-backend',
+  },
 });
 
-console.log('✅ PostgreSQL client configured with SSL, timeouts, and keep-alive');
+console.log('✅ PostgreSQL client configured with SSL');
 
 export const db = drizzle(client, { schema });
 
