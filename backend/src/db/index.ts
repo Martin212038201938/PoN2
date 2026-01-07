@@ -73,12 +73,41 @@ const connectionString = sanitizeConnectionString(rawConnectionString);
 
 // Disable prefetch as it is not supported for "Transaction" pool mode
 // Enable SSL for AlwaysData PostgreSQL (required for remote connections)
+// Add robust timeout and keep-alive configuration for production
 export const client = postgres(connectionString, {
   prepare: false,
-  ssl: 'require',  // AlwaysData requires SSL connections
-  // Alternative if 'require' doesn't work:
-  // ssl: { rejectUnauthorized: false }
+
+  // SSL Configuration
+  ssl: { rejectUnauthorized: false },  // AlwaysData SSL with self-signed cert
+
+  // Connection Timeouts (in seconds)
+  connect_timeout: 10,           // 10 seconds to establish connection
+  idle_timeout: 30,              // Close idle connections after 30 seconds
+  max_lifetime: 60 * 30,         // Max connection lifetime: 30 minutes
+
+  // TCP Keep-Alive (prevents connection drops)
+  keepalives: 1,                 // Enable TCP keep-alive
+  keepalives_idle: 10,           // Wait 10 seconds before first keep-alive
+
+  // Connection Pool
+  max: 10,                       // Max 10 concurrent connections
+
+  // PostgreSQL Session Settings
+  options: {
+    statement_timeout: 30000,                        // 30 seconds per statement
+    idle_in_transaction_session_timeout: 60000,      // 60 seconds for idle transactions
+  },
+
+  // Debug mode (remove in production if too verbose)
+  debug: process.env.NODE_ENV === 'development',
+
+  // Error handling
+  onnotice: () => {},            // Suppress notices
+  onparameter: () => {},         // Suppress parameter changes
 });
+
+console.log('✅ PostgreSQL client configured with SSL, timeouts, and keep-alive');
+
 export const db = drizzle(client, { schema });
 
 // Helper function to generate CUID IDs (compatible with Prisma's cuid)
