@@ -6,7 +6,7 @@
  */
 
 import dotenv from 'dotenv';
-import postgres from 'postgres';
+import { Pool } from 'pg';
 import path from 'path';
 import fs from 'fs';
 
@@ -62,41 +62,44 @@ try {
   process.exit(1);
 }
 
-console.log('🔌 Testing database connection...\n');
+console.log('🔌 Testing database connection (node-postgres)...\n');
 
-const sql = postgres(DATABASE_URL, {
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
   max: 1,
-  connect_timeout: 10,
-  onnotice: () => {},
+  connectionTimeoutMillis: 10000,
 });
 
 try {
   // Test connection
-  const result = await sql`SELECT version(), current_database(), current_user`;
+  const result = await pool.query('SELECT version(), current_database(), current_user');
 
   console.log('✅ Connection successful!\n');
   console.log('📊 Database Information:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log(`   PostgreSQL Version: ${result[0].version?.split(' ')[0] || 'Unknown'}`);
-  console.log(`   Database: ${result[0].current_database}`);
-  console.log(`   User: ${result[0].current_user}`);
+  console.log(`   PostgreSQL Version: ${result.rows[0].version?.split(' ')[0] || 'Unknown'}`);
+  console.log(`   Database: ${result.rows[0].current_database}`);
+  console.log(`   User: ${result.rows[0].current_user}`);
   console.log('');
 
   // Check if tables exist
   console.log('🔍 Checking for Drizzle tables...\n');
-  const tables = await sql`
+  const tables = await pool.query(`
     SELECT table_name
     FROM information_schema.tables
     WHERE table_schema = 'public'
     AND table_type = 'BASE TABLE'
     ORDER BY table_name
-  `;
+  `);
 
-  if (tables.length === 0) {
+  if (tables.rows.length === 0) {
     console.log('⚠️  No tables found! You need to run: npm run db:init');
   } else {
-    console.log(`✅ Found ${tables.length} tables:`);
-    tables.forEach((table: any) => {
+    console.log(`✅ Found ${tables.rows.length} tables:`);
+    tables.rows.forEach((table: any) => {
       console.log(`   - ${table.table_name}`);
     });
   }
@@ -137,5 +140,5 @@ try {
 
   process.exit(1);
 } finally {
-  await sql.end();
+  await pool.end();
 }

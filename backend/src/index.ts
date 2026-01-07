@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { sql } from 'drizzle-orm';
-import { db, client } from './db';
+import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import caseRoutes from './routes/case.routes';
@@ -122,13 +122,13 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully...');
-  await client.end();
+  await pool.end();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  await client.end();
+  await pool.end();
   process.exit(0);
 });
 

@@ -10,7 +10,7 @@
  *   tsx scripts/init-schema.ts
  */
 
-import postgres from 'postgres';
+import { Pool } from 'pg';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import dotenv from 'dotenv';
@@ -27,13 +27,16 @@ if (!DATABASE_URL) {
 }
 
 async function initSchema() {
-  console.log('🚀 Initializing Drizzle Schema...');
+  console.log('🚀 Initializing Drizzle Schema (node-postgres)...');
   console.log('');
 
-  // Create postgres client
-  const sql = postgres(DATABASE_URL, {
+  // Create postgres pool
+  const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
     max: 1,
-    onnotice: () => {}, // Suppress notices
   });
 
   try {
@@ -47,7 +50,7 @@ async function initSchema() {
 
     // Test connection
     console.log('🔌 Testing database connection...');
-    await sql`SELECT 1 as test`;
+    await pool.query('SELECT 1 as test');
     console.log('✅ Database connection successful');
     console.log('');
 
@@ -56,7 +59,7 @@ async function initSchema() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Execute the entire SQL file
-    await sql.unsafe(schemaSql);
+    await pool.query(schemaSql);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ Schema applied successfully!');
@@ -64,19 +67,19 @@ async function initSchema() {
 
     // Verify tables were created
     console.log('📊 Verifying created tables...');
-    const tables = await sql`
+    const tables = await pool.query(`
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
       ORDER BY table_name
-    `;
+    `);
 
-    if (tables.length === 0) {
+    if (tables.rows.length === 0) {
       console.log('⚠️  No tables found! Schema may not have been applied.');
     } else {
-      console.log(`✅ Found ${tables.length} tables:`);
-      tables.forEach((table: any) => {
+      console.log(`✅ Found ${tables.rows.length} tables:`);
+      tables.rows.forEach((table: any) => {
         console.log(`   - ${table.table_name}`);
       });
     }
@@ -84,18 +87,18 @@ async function initSchema() {
 
     // Verify enums were created
     console.log('📋 Verifying created ENUMs...');
-    const enums = await sql`
+    const enums = await pool.query(`
       SELECT typname
       FROM pg_type
       WHERE typtype = 'e'
       ORDER BY typname
-    `;
+    `);
 
-    if (enums.length === 0) {
+    if (enums.rows.length === 0) {
       console.log('⚠️  No ENUMs found!');
     } else {
-      console.log(`✅ Found ${enums.length} ENUMs:`);
-      enums.forEach((enumType: any) => {
+      console.log(`✅ Found ${enums.rows.length} ENUMs:`);
+      enums.rows.forEach((enumType: any) => {
         console.log(`   - ${enumType.typname}`);
       });
     }
@@ -135,7 +138,7 @@ async function initSchema() {
     process.exit(1);
   } finally {
     // Close connection
-    await sql.end();
+    await pool.end();
   }
 }
 

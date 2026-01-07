@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -35,74 +35,53 @@ if (!rawConnectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Parse and properly encode the connection string to handle special characters in password
-// This fixes issues with characters like !, @, #, etc. in passwords
-function sanitizeConnectionString(url: string): string {
+// Parse connection string to show connection details
+function logConnectionDetails(url: string): void {
   try {
     const parsed = new URL(url);
-
-    // URL constructor automatically encodes the password, but we need to ensure it's correct
-    // Reconstruct the URL with properly encoded components
-    const username = parsed.username;
-    const password = parsed.password; // Already decoded by URL constructor
-    const host = parsed.hostname;
-    const port = parsed.port || '5432';
-    const database = parsed.pathname.slice(1); // Remove leading /
-
-    // Manually encode password to ensure special characters are handled
-    const encodedPassword = encodeURIComponent(password);
-
-    // Reconstruct the connection string
-    const sanitized = `postgresql://${username}:${encodedPassword}@${host}:${port}/${database}`;
-
-    console.log('🔧 Database connection:');
-    console.log(`   User: ${username}`);
-    console.log(`   Host: ${host}:${port}`);
-    console.log(`   Database: ${database}`);
-    console.log(`   Password: ${'*'.repeat(password.length)} (${password.length} chars)`);
-
-    return sanitized;
+    console.log('🔧 Database connection (node-postgres):');
+    console.log(`   User: ${parsed.username}`);
+    console.log(`   Host: ${parsed.hostname}:${parsed.port || '5432'}`);
+    console.log(`   Database: ${parsed.pathname.slice(1)}`);
+    console.log(`   Password: ${'*'.repeat(parsed.password.length)} (${parsed.password.length} chars)`);
   } catch (error) {
-    console.error('❌ Failed to parse DATABASE_URL:', error);
-    console.error('   Using raw connection string (may fail with special characters)');
-    return url;
+    console.error('⚠️  Could not parse DATABASE_URL for logging');
   }
 }
 
-const connectionString = sanitizeConnectionString(rawConnectionString);
+logConnectionDetails(rawConnectionString);
 
-// Production-ready postgres.js configuration for AlwaysData
-export const client = postgres(connectionString, {
-  // Disable prepared statements (not compatible with some poolers)
-  prepare: false,
+// Create PostgreSQL connection pool with node-postgres (pg)
+// This is more stable on shared hosting than postgres.js
+export const pool = new Pool({
+  connectionString: rawConnectionString,
 
-  // SSL is required for AlwaysData
-  ssl: 'require',
-
-  // Connection timeout (in seconds)
-  connect_timeout: 10,
+  // SSL configuration for AlwaysData
+  ssl: {
+    rejectUnauthorized: false,  // Accept self-signed certificates
+  },
 
   // Connection pool settings
-  max: 10,
-  idle_timeout: 20,
+  max: 10,                      // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000,     // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Timeout after 10 seconds if connection cannot be established
 
-  // Transform functions to ensure proper data handling
-  transform: {
-    undefined: null,
-  },
-
-  // No debug output in production
-  debug: false,
-
-  // Connection string parameters for PostgreSQL
-  connection: {
-    application_name: 'pon2-backend',
-  },
+  // Application name for PostgreSQL logs
+  application_name: 'pon2-backend',
 });
 
-console.log('✅ PostgreSQL client configured with SSL');
+// Test the connection immediately
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('❌ Database connection test FAILED:', err.message);
+  } else {
+    console.log('✅ Database connection test SUCCESSFUL');
+    console.log(`   Server time: ${res.rows[0].now}`);
+  }
+});
 
-export const db = drizzle(client, { schema });
+// Create Drizzle instance with node-postgres
+export const db = drizzle(pool, { schema });
 
 // Helper function to generate CUID IDs (compatible with Prisma's cuid)
 export const generateId = createId;
