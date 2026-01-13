@@ -1,10 +1,14 @@
 /**
  * PM2 Ecosystem Configuration for PoN2
  *
+ * SINGLE SOURCE OF TRUTH für Port-Konfiguration!
+ *
  * Usage:
  *   pm2 start ecosystem.config.cjs
  *   pm2 start ecosystem.config.cjs --env production
  */
+
+const PORT = 8100;  // EINHEITLICHER PORT - überall gleich!
 
 module.exports = {
   apps: [
@@ -14,14 +18,14 @@ module.exports = {
       script: 'npx',
       args: 'tsx src/index.ts',
 
-      // CRITICAL: Force PORT here to override any cached values
+      // KRITISCH: Port wird hier gesetzt UND an Node übergeben
       env: {
         NODE_ENV: 'development',
-        PORT: 8081,
+        PORT: PORT,
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 8081,
+        PORT: PORT,
       },
 
       // Process management
@@ -30,15 +34,11 @@ module.exports = {
       watch: false,
       max_memory_restart: '500M',
 
-      // Logging
-      error_file: './logs/backend-error.log',
-      out_file: './logs/backend-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      // Logging - KEIN separates Log-Verzeichnis (einfacher)
       merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
 
       // Startup
-      wait_ready: true,
-      listen_timeout: 10000,
       kill_timeout: 5000,
     }
   ]

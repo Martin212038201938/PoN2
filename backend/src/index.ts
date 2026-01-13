@@ -27,13 +27,13 @@ if (!process.env.DATABASE_URL) {
 
 const app: Application = express();
 
-// PORT CONFIGURATION - Multiple fallback strategies:
-// 1. process.env.PORT from .env file (loaded by ./db/index.ts)
-// 2. Fallback to 8100 (unlikely to conflict)
-const PORT = parseInt(process.env.PORT || '8100', 10);
-const HOST = process.env.HOST || '0.0.0.0';
+// PORT CONFIGURATION - EINFACH UND ROBUST
+// Dieser Port (8100) ist identisch mit ecosystem.config.cjs
+const DEFAULT_PORT = 8100;
+const PORT = parseInt(process.env.PORT || String(DEFAULT_PORT), 10);
+const HOST = '0.0.0.0';  // Immer auf allen Interfaces hören
 
-console.log(`   Using PORT: ${PORT}`);
+console.log(`   Using PORT: ${PORT}${PORT === DEFAULT_PORT ? ' (default)' : ' (from env)'}`);
 console.log(`   Using HOST: ${HOST}`);
 
 // Export db for use in other modules

@@ -104,14 +104,21 @@ npm run build
 - PostgreSQL-Datenbank
 - PM2 für Prozess-Management
 
-### Umgebungsvariablen (.env)
+### Umgebungsvariablen (backend/.env)
 ```
 DATABASE_URL=postgresql://user:pass@host:5432/pon2
 JWT_SECRET=sicheres-geheimnis-hier
-PORT=8080
 NODE_ENV=production
-CORS_ORIGIN=https://pon2.yellow-plane.com
+# PORT wird NICHT in .env gesetzt - kommt von ecosystem.config.cjs (8100)
 ```
+
+### Port-Konfiguration
+**WICHTIG:** Der Port ist einheitlich auf **8100** gesetzt in:
+- `ecosystem.config.cjs` (PM2)
+- `backend/src/index.ts` (Fallback)
+- `start-backend.sh` (Startup-Script)
+
+AlwaysData Reverse Proxy muss auf Port **8100** zeigen!
 
 ---
 
