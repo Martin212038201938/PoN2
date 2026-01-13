@@ -41,10 +41,17 @@ export { db };
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+
+// CORS configuration - flexible for development and production
+const corsOrigin = process.env.CORS_ORIGIN;
+const corsOptions = {
+  origin: corsOrigin
+    ? corsOrigin.split(',').map(o => o.trim())  // Support multiple origins: "http://a.com,http://b.com"
+    : true,  // Allow all origins if not specified (reverse proxy handles security)
   credentials: true,
-}));
+};
+console.log(`   CORS origin: ${corsOrigin || 'all (reverse proxy mode)'}`);
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

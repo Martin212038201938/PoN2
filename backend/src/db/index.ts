@@ -89,13 +89,13 @@ logConnectionDetails(rawConnectionString);
 
 // Create PostgreSQL connection pool with node-postgres (pg)
 // This is more stable on shared hosting than postgres.js
+const sslConfig = process.env.DATABASE_SSL === 'false'
+  ? false
+  : { rejectUnauthorized: false };  // Accept self-signed certificates for AlwaysData
+
 export const pool = new Pool({
   connectionString: rawConnectionString,
-
-  // SSL configuration for AlwaysData
-  ssl: {
-    rejectUnauthorized: false,  // Accept self-signed certificates
-  },
+  ssl: sslConfig,
 
   // Connection pool settings
   max: 10,                      // Maximum number of clients in the pool
@@ -106,7 +106,12 @@ export const pool = new Pool({
   application_name: 'pon2-backend',
 });
 
-console.log('✅ PostgreSQL connection pool created');
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('❌ Unexpected PostgreSQL pool error:', err);
+});
+
+console.log('✅ PostgreSQL connection pool created (SSL:', sslConfig ? 'enabled' : 'disabled', ')');
 
 // Create Drizzle instance with node-postgres
 export const db = drizzle(pool, { schema });

@@ -1,6 +1,22 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000/api';
+// API URL configuration:
+// 1. Use VITE_API_URL from environment (set during build)
+// 2. In production, default to relative /api path (works with reverse proxy)
+// 3. In development, fallback to localhost:8081
+const getApiUrl = (): string => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+
+  // Check if we're in production (served from same domain)
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return '/api';  // Use relative path - reverse proxy handles it
+  }
+
+  return 'http://localhost:8081/api';  // Development default
+};
+
+const API_URL = getApiUrl();
 class ApiService {
   private client: AxiosInstance;
 
