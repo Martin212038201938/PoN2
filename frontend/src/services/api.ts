@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 // API URL configuration:
 // 1. Use VITE_API_URL from environment (set during build)
 // 2. In production, default to relative /api path (works with reverse proxy)
-// 3. In development, fallback to localhost:8081
+// 3. In development, fallback to localhost:8100 (matches backend default)
 const getApiUrl = (): string => {
   const envUrl = (import.meta as any).env?.VITE_API_URL;
   if (envUrl) return envUrl;
@@ -13,10 +13,18 @@ const getApiUrl = (): string => {
     return '/api';  // Use relative path - reverse proxy handles it
   }
 
-  return 'http://localhost:8081/api';  // Development default
+  return 'http://localhost:8100/api';  // Development default - matches backend PORT
 };
 
 const API_URL = getApiUrl();
+
+// Store reference for auth state updates
+let onAuthError: (() => void) | null = null;
+
+export function setAuthErrorHandler(handler: () => void) {
+  onAuthError = handler;
+}
+
 class ApiService {
   private client: AxiosInstance;
 
@@ -42,9 +50,11 @@ class ApiService {
       (response) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Clear token and redirect to login
+          // Clear token and notify auth store (no page reload)
           localStorage.removeItem('auth_token');
-          window.location.href = '/login';
+          if (onAuthError) {
+            onAuthError();
+          }
         }
         return Promise.reject(error);
       }
