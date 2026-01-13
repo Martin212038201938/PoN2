@@ -27,13 +27,12 @@ if (!process.env.DATABASE_URL) {
 
 const app: Application = express();
 
-// PORT CONFIGURATION - EINFACH UND ROBUST
-// Dieser Port (8100) ist identisch mit ecosystem.config.cjs
-const DEFAULT_PORT = 8100;
-const PORT = parseInt(process.env.PORT || String(DEFAULT_PORT), 10);
-const HOST = '0.0.0.0';  // Immer auf allen Interfaces hören
+// PORT & HOST CONFIGURATION
+// AlwaysData setzt PORT und HOST automatisch - diese MÜSSEN verwendet werden!
+const PORT = parseInt(process.env.PORT || '8100', 10);
+const HOST = process.env.HOST || '0.0.0.0';  // AlwaysData setzt IPv6-Adresse
 
-console.log(`   Using PORT: ${PORT}${PORT === DEFAULT_PORT ? ' (default)' : ' (from env)'}`);
+console.log(`   Using PORT: ${PORT}`);
 console.log(`   Using HOST: ${HOST}`);
 
 // Export db for use in other modules
