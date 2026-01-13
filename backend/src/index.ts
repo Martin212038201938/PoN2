@@ -1,8 +1,8 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
-import path from 'path';
+// Note: Environment variables are loaded manually in ./db/index.ts (runs first due to import order)
+// This bypasses dotenv's issues with PM2/shell pre-set variables
 import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
@@ -14,48 +14,44 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-// Load .env file with multiple fallback strategies
-// This handles both development (cwd = backend/) and production (cwd = monorepo root)
-const envPaths = [
-  path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
-  path.join(process.cwd(), '.env'),              // Direct run from backend/
-  path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
-];
-
-let envLoaded = false;
-for (const envPath of envPaths) {
-  if (require('fs').existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-    console.log(`✅ Loaded .env from: ${envPath}`);
-    envLoaded = true;
-    break;
-  }
-}
-
-if (!envLoaded) {
-  console.warn('⚠️  No .env file found! Using environment variables from PM2/shell');
-}
+// Log what was loaded for debugging
+console.log(`🔧 Server configuration:`);
+console.log(`   PORT env: ${process.env.PORT || 'not set'}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 
 // Verify critical environment variables
 if (!process.env.DATABASE_URL) {
   console.error('❌ CRITICAL: DATABASE_URL not set!');
-  console.error('   Searched paths:', envPaths);
   process.exit(1);
 }
 
 const app: Application = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const HOST = process.env.HOST || '0.0.0.0';
+
+// PORT CONFIGURATION - EINFACH UND ROBUST
+// Dieser Port (8100) ist identisch mit ecosystem.config.cjs
+const DEFAULT_PORT = 8100;
+const PORT = parseInt(process.env.PORT || String(DEFAULT_PORT), 10);
+const HOST = '0.0.0.0';  // Immer auf allen Interfaces hören
+
+console.log(`   Using PORT: ${PORT}${PORT === DEFAULT_PORT ? ' (default)' : ' (from env)'}`);
+console.log(`   Using HOST: ${HOST}`);
 
 // Export db for use in other modules
 export { db };
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+
+// CORS configuration - flexible for development and production
+const corsOrigin = process.env.CORS_ORIGIN;
+const corsOptions = {
+  origin: corsOrigin
+    ? corsOrigin.split(',').map(o => o.trim())  // Support multiple origins: "http://a.com,http://b.com"
+    : true,  // Allow all origins if not specified (reverse proxy handles security)
   credentials: true,
-}));
+};
+console.log(`   CORS origin: ${corsOrigin || 'all (reverse proxy mode)'}`);
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -68,8 +64,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check
-app.get('/health', async (_req: Request, res: Response) => {
+// Health check - available on both /health and /api/health
+const healthHandler = async (_req: Request, res: Response) => {
   try {
     // Check database connection
     await pool.query('SELECT 1');
@@ -80,6 +76,8 @@ app.get('/health', async (_req: Request, res: Response) => {
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       database: 'connected',
+      port: PORT,
+      host: HOST,
     });
   } catch (error) {
     logger.error('Health check failed:', error);
@@ -92,7 +90,10 @@ app.get('/health', async (_req: Request, res: Response) => {
       error: 'Database connection failed',
     });
   }
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -133,18 +134,37 @@ process.on('SIGTERM', async () => {
 
 // Start server
 async function startServer() {
+  console.log('🔄 Starting server...');
+
   try {
     // Test database connection with a simple query
-    logger.info('Testing database connection...');
+    console.log('   Testing database connection...');
     await pool.query('SELECT 1');
-    logger.info('✅ Database connected successfully');
+    console.log('   ✅ Database connected successfully');
 
-    app.listen(PORT, HOST, () => {
-      logger.info(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`Health check: http://${HOST}:${PORT}/health`);
+    // Start listening
+    console.log(`   Starting HTTP server on ${HOST}:${PORT}...`);
+
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Health check: http://localhost:${PORT}/health`);
+      console.log(`   API base: http://localhost:${PORT}/api`);
+      logger.info(`Server started on ${HOST}:${PORT}`);
     });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use!`);
+        console.error(`   Try: lsof -i :${PORT} to see what's using it`);
+      } else {
+        console.error('❌ Server error:', error);
+      }
+      process.exit(1);
+    });
+
   } catch (error) {
+    console.error('❌ Failed to start server:', error);
     logger.error('Failed to start server:', error);
     process.exit(1);
   }
