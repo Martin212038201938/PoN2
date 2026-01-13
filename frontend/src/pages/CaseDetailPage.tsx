@@ -15,11 +15,16 @@ import {
   XCircle,
   Users,
   FileSearch,
-  
+  FileText,
   TrendingUp,
+  Download,
+  Trash2,
+  File,
+  Image,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useState } from 'react';
+import DocumentUpload from '../components/DocumentUpload';
 
 const statusColors: Record<CaseStatus, string> = {
   NEW: 'bg-gray-100 text-gray-800',
@@ -64,7 +69,7 @@ export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'persons' | 'artifacts'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'persons' | 'artifacts' | 'documents'>(
     'overview'
   );
 
@@ -84,6 +89,19 @@ export default function CaseDetailPage() {
     queryKey: ['case-artifacts', id],
     queryFn: () => api.getCaseArtifacts(id!),
     enabled: !!id && activeTab === 'artifacts',
+  });
+
+  const { data: documentsData, refetch: refetchDocuments } = useQuery({
+    queryKey: ['case-documents', id],
+    queryFn: () => api.getCaseDocuments(id!),
+    enabled: !!id && activeTab === 'documents',
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => api.deleteDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['case-documents', id] });
+    },
   });
 
   const startResearchMutation = useMutation({
@@ -119,6 +137,7 @@ export default function CaseDetailPage() {
 
   const persons: PersonCase[] = personsData?.persons || [];
   const artifacts: ResearchArtifact[] = artifactsData?.artifacts || [];
+  const documents: any[] = documentsData?.documents || [];
 
   return (
     <div>
@@ -237,6 +256,7 @@ export default function CaseDetailPage() {
             { id: 'overview', label: 'Übersicht' },
             { id: 'persons', label: 'Personen' },
             { id: 'artifacts', label: 'Recherche-Artefakte' },
+            { id: 'documents', label: 'Dokumente' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -444,6 +464,91 @@ export default function CaseDetailPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'documents' && (
+        <div className="space-y-6">
+          {/* Upload Section */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Dokument hochladen
+            </h3>
+            <DocumentUpload caseId={id!} onUploadComplete={() => refetchDocuments()} />
+          </div>
+
+          {/* Documents List */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Hochgeladene Dokumente ({documents.length})
+            </h3>
+            {documents.length === 0 ? (
+              <p className="text-gray-600 text-center py-8">
+                Noch keine Dokumente hochgeladen
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {documents.map((doc) => {
+                  const ext = doc.originalName?.split('.').pop()?.toLowerCase();
+                  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+                  const isPdf = ext === 'pdf';
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {isImage ? (
+                          <Image className="w-8 h-8 text-green-600" />
+                        ) : isPdf ? (
+                          <FileText className="w-8 h-8 text-red-600" />
+                        ) : (
+                          <File className="w-8 h-8 text-blue-600" />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{doc.originalName || doc.fileName}</p>
+                          <p className="text-sm text-gray-500">
+                            {doc.fileSize ? `${(doc.fileSize / 1024 / 1024).toFixed(2)} MB` : '-'} •
+                            {formatDateTime(doc.createdAt)}
+                            {doc.type && doc.type !== 'OTHER' && (
+                              <span className="ml-2 badge bg-gray-100 text-gray-700">
+                                {doc.type === 'COURT_DOCUMENT' ? 'Gerichtsdokument' :
+                                 doc.type === 'EMAIL' ? 'E-Mail' :
+                                 doc.type === 'LETTER' ? 'Brief' :
+                                 doc.type === 'INTERNAL_NOTE' ? 'Interne Notiz' :
+                                 doc.type === 'HEIR_CONTACT' ? 'Erbenkontakt' : doc.type}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={api.getDocumentDownloadUrl(doc.id)}
+                          className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Herunterladen"
+                        >
+                          <Download className="w-5 h-5" />
+                        </a>
+                        <button
+                          onClick={() => {
+                            if (confirm('Dokument wirklich löschen?')) {
+                              deleteDocumentMutation.mutate(doc.id);
+                            }
+                          }}
+                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Löschen"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

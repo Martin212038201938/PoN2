@@ -135,8 +135,32 @@ class ApiService {
   }
 
   async getCaseDocuments(id: string) {
-    const response = await this.client.get(`/cases/${id}/documents`);
+    const response = await this.client.get(`/documents/case/${id}`);
     return response.data;
+  }
+
+  async uploadDocument(caseId: string, file: File, metadata?: { type?: string; subject?: string }) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (metadata?.type) formData.append('type', metadata.type);
+    if (metadata?.subject) formData.append('subject', metadata.subject);
+
+    const response = await this.client.post(`/documents/case/${caseId}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  async deleteDocument(id: string) {
+    const response = await this.client.delete(`/documents/${id}`);
+    return response.data;
+  }
+
+  getDocumentDownloadUrl(id: string) {
+    const token = localStorage.getItem('auth_token');
+    return `${API_URL}/documents/${id}/download?token=${token}`;
   }
 
   async getCaseResearchWaves(id: string) {
