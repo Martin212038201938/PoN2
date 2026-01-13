@@ -1,9 +1,8 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
+// Note: Environment variables are loaded manually in ./db/index.ts (runs first due to import order)
+// This bypasses dotenv's issues with PM2/shell pre-set variables
 import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
@@ -15,8 +14,7 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-// Note: dotenv is already loaded in ./db/index.ts which runs first due to import order
-// We just log what was loaded for debugging
+// Log what was loaded for debugging
 console.log(`🔧 Server configuration:`);
 console.log(`   PORT env: ${process.env.PORT || 'not set'}`);
 console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);

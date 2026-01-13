@@ -1,14 +1,12 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import * as schema from './schema';
 
-// CRITICAL: Load .env BEFORE accessing process.env.DATABASE_URL
-// This module is imported before index.ts, so this is where .env gets loaded
-// Using override:true ensures .env values take precedence over shell/PM2 environment
+// CRITICAL: Manually load and FORCE-OVERRIDE environment variables from .env
+// This bypasses dotenv's quirks with PM2/shell pre-set variables
 const envPaths = [
   path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
   path.join(process.cwd(), '.env'),              // Direct run from backend/
@@ -16,13 +14,43 @@ const envPaths = [
   path.join(__dirname, '..', '.env'),            // From src/ folder
 ];
 
+function loadEnvFileManually(filePath: string): boolean {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Skip comments and empty lines
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex === -1) continue;
+
+      const key = trimmed.substring(0, eqIndex).trim();
+      let value = trimmed.substring(eqIndex + 1).trim();
+
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+
+      // FORCE override - this is the key difference from dotenv
+      process.env[key] = value;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let envLoaded = false;
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
-    // override:true ensures .env file values OVERRIDE any existing env vars (from PM2, shell, etc.)
-    const result = dotenv.config({ path: envPath, override: true });
-    if (!result.error) {
-      console.log(`✅ Loaded .env from: ${envPath}`);
+    if (loadEnvFileManually(envPath)) {
+      console.log(`✅ Loaded .env from: ${envPath} (manual override)`);
+      console.log(`   PORT is now: ${process.env.PORT}`);
       envLoaded = true;
       break;
     }
