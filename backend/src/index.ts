@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { db, pool } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
@@ -14,38 +15,28 @@ import documentRoutes from './routes/document.routes';
 import integrationRoutes from './routes/integration.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
-// Load .env file with multiple fallback strategies
-// This handles both development (cwd = backend/) and production (cwd = monorepo root)
-const envPaths = [
-  path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
-  path.join(process.cwd(), '.env'),              // Direct run from backend/
-  path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
-];
-
-let envLoaded = false;
-for (const envPath of envPaths) {
-  if (require('fs').existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-    console.log(`✅ Loaded .env from: ${envPath}`);
-    envLoaded = true;
-    break;
-  }
-}
-
-if (!envLoaded) {
-  console.warn('⚠️  No .env file found! Using environment variables from PM2/shell');
-}
+// Note: dotenv is already loaded in ./db/index.ts which runs first due to import order
+// We just log what was loaded for debugging
+console.log(`🔧 Server configuration:`);
+console.log(`   PORT env: ${process.env.PORT || 'not set'}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 
 // Verify critical environment variables
 if (!process.env.DATABASE_URL) {
   console.error('❌ CRITICAL: DATABASE_URL not set!');
-  console.error('   Searched paths:', envPaths);
   process.exit(1);
 }
 
 const app: Application = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
+
+// PORT CONFIGURATION - Multiple fallback strategies:
+// 1. process.env.PORT from .env file (loaded by ./db/index.ts)
+// 2. Fallback to 8100 (unlikely to conflict)
+const PORT = parseInt(process.env.PORT || '8100', 10);
 const HOST = process.env.HOST || '0.0.0.0';
+
+console.log(`   Using PORT: ${PORT}`);
+console.log(`   Using HOST: ${HOST}`);
 
 // Export db for use in other modules
 export { db };

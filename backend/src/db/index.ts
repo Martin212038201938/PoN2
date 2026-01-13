@@ -7,24 +7,32 @@ import fs from 'fs';
 import * as schema from './schema';
 
 // CRITICAL: Load .env BEFORE accessing process.env.DATABASE_URL
-// This module is imported before index.ts runs dotenv.config()
+// This module is imported before index.ts, so this is where .env gets loaded
+// Using override:true ensures .env values take precedence over shell/PM2 environment
 const envPaths = [
   path.join(process.cwd(), 'backend', '.env'),  // PM2 from root: ~/pon2
   path.join(process.cwd(), '.env'),              // Direct run from backend/
   path.join(__dirname, '..', '..', '.env'),      // From dist/ folder
+  path.join(__dirname, '..', '.env'),            // From src/ folder
 ];
 
 let envLoaded = false;
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-    envLoaded = true;
-    break;
+    // override:true ensures .env file values OVERRIDE any existing env vars (from PM2, shell, etc.)
+    const result = dotenv.config({ path: envPath, override: true });
+    if (!result.error) {
+      console.log(`✅ Loaded .env from: ${envPath}`);
+      envLoaded = true;
+      break;
+    }
   }
 }
 
 if (!envLoaded) {
-  console.warn('⚠️  db/index.ts: No .env file found! Using environment variables from PM2/shell');
+  console.warn('⚠️  db/index.ts: No .env file found!');
+  console.warn('   Searched paths:', envPaths);
+  console.warn('   Using environment variables from PM2/shell');
 }
 
 const rawConnectionString = process.env.DATABASE_URL;
