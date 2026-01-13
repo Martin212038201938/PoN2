@@ -57,8 +57,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check
-app.get('/health', async (_req: Request, res: Response) => {
+// Health check - available on both /health and /api/health
+const healthHandler = async (_req: Request, res: Response) => {
   try {
     // Check database connection
     await pool.query('SELECT 1');
@@ -69,6 +69,8 @@ app.get('/health', async (_req: Request, res: Response) => {
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       database: 'connected',
+      port: PORT,
+      host: HOST,
     });
   } catch (error) {
     logger.error('Health check failed:', error);
@@ -81,7 +83,10 @@ app.get('/health', async (_req: Request, res: Response) => {
       error: 'Database connection failed',
     });
   }
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -122,18 +127,37 @@ process.on('SIGTERM', async () => {
 
 // Start server
 async function startServer() {
+  console.log('🔄 Starting server...');
+
   try {
     // Test database connection with a simple query
-    logger.info('Testing database connection...');
+    console.log('   Testing database connection...');
     await pool.query('SELECT 1');
-    logger.info('✅ Database connected successfully');
+    console.log('   ✅ Database connected successfully');
 
-    app.listen(PORT, HOST, () => {
-      logger.info(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`Health check: http://${HOST}:${PORT}/health`);
+    // Start listening
+    console.log(`   Starting HTTP server on ${HOST}:${PORT}...`);
+
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`🚀 PoN2 Backend API running on ${HOST}:${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Health check: http://localhost:${PORT}/health`);
+      console.log(`   API base: http://localhost:${PORT}/api`);
+      logger.info(`Server started on ${HOST}:${PORT}`);
     });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use!`);
+        console.error(`   Try: lsof -i :${PORT} to see what's using it`);
+      } else {
+        console.error('❌ Server error:', error);
+      }
+      process.exit(1);
+    });
+
   } catch (error) {
+    console.error('❌ Failed to start server:', error);
     logger.error('Failed to start server:', error);
     process.exit(1);
   }
