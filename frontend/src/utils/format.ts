@@ -11,15 +11,19 @@ export function formatDateTime(date: string | Date | undefined): string {
   return formatDate(date, 'dd.MM.yyyy HH:mm');
 }
 
-export function formatCurrency(amount: number | undefined): string {
+export function formatCurrency(amount: number | string | undefined | null): string {
   if (amount === undefined || amount === null) return '-';
+  const numValue = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numValue)) return '-';
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
     currency: 'EUR',
-  }).format(amount);
+  }).format(numValue);
 }
 
-export function formatPercentage(value: number | undefined): string {
+export function formatPercentage(value: number | string | undefined | null): string {
   if (value === undefined || value === null) return '-';
-  return `${value.toFixed(1)}%`;
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '-';
+  return `${numValue.toFixed(1)}%`;
 }
