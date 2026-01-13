@@ -31,6 +31,35 @@ const statusColors: Record<CaseStatus, string> = {
   ON_HOLD: 'bg-gray-100 text-gray-800',
 };
 
+const statusLabels: Record<CaseStatus, string> = {
+  NEW: 'Neu',
+  IN_RESEARCH: 'In Recherche',
+  WAITING_FOR_RESPONSE: 'Wartet auf Antwort',
+  HEIRS_IDENTIFIED: 'Erben identifiziert',
+  SUCCESSFULLY_SOLVED: 'Erfolgreich gelöst',
+  CLOSED_WITHOUT_SUCCESS: 'Ohne Erfolg geschlossen',
+  ON_HOLD: 'Pausiert',
+};
+
+const roleLabels: Record<string, string> = {
+  DECEASED: 'Erblasser',
+  POTENTIAL_HEIR: 'Potentieller Erbe',
+  RELATIVE: 'Verwandter',
+  CONTACT_PERSON: 'Kontaktperson',
+  OTHER: 'Sonstige',
+};
+
+const artifactTypeLabels: Record<string, string> = {
+  GENEALOGY_SEARCH: 'Genealogie-Suche',
+  SOCIAL_MEDIA_PROFILE: 'Social Media Profil',
+  PUBLIC_RECORD: 'Öffentliche Aufzeichnung',
+  COURT_DOCUMENT: 'Gerichtsdokument',
+  PERPLEXITY_RESEARCH: 'Perplexity Recherche',
+  WEB_SEARCH: 'Websuche',
+  MANUAL_NOTE: 'Manuelle Notiz',
+  OTHER: 'Sonstiges',
+};
+
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -110,7 +139,7 @@ export default function CaseDetailPage() {
                 {caseItem.caseNumber}
               </h1>
               <span className={cn('badge', statusColors[caseItem.status])}>
-                {caseItem.status}
+                {statusLabels[caseItem.status]}
               </span>
             </div>
             <p className="mt-2 text-xl text-gray-600">
@@ -337,7 +366,7 @@ export default function CaseDetailPage() {
                         {personCase.person.firstName} {personCase.person.lastName}
                       </h4>
                       <p className="text-sm text-gray-600">
-                        Rolle: {personCase.role}
+                        Rolle: {roleLabels[personCase.role] || personCase.role}
                       </p>
                     </div>
                     {personCase.heirProbability !== null && (
@@ -389,7 +418,7 @@ export default function CaseDetailPage() {
                     <div>
                       <h4 className="font-medium text-gray-900">{artifact.source}</h4>
                       <p className="text-sm text-gray-600">
-                        Typ: {artifact.type} • {formatDateTime(artifact.createdAt)}
+                        Typ: {artifactTypeLabels[artifact.type] || artifact.type} • {formatDateTime(artifact.createdAt)}
                       </p>
                     </div>
                     {artifact.relevanceScore !== null && (
