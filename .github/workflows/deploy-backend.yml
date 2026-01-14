@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+      - claude/restore-pre-merge-state-0UOVb
     paths:
       - 'backend/**'
       - 'scripts/deploy-to-alwaysdata.sh'
@@ -35,12 +36,12 @@ jobs:
               echo "Updating existing repository..."
               cd ~/pon2
               git fetch origin
-              git reset --hard origin/claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+              git reset --hard origin/claude/restore-pre-merge-state-0UOVb
               git clean -fd
             else
               echo "Cloning repository..."
               git clone https://github.com/Martin212038201938/PoN2.git pon2
               cd ~/pon2
-              git checkout claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+              git checkout claude/restore-pre-merge-state-0UOVb
             fi
             bash ~/pon2/scripts/deploy-to-alwaysdata.sh

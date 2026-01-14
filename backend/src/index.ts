@@ -95,6 +95,86 @@ const healthHandler = async (_req: Request, res: Response) => {
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
+// DEBUG endpoint - diagnoses login issues (remove in production!)
+app.get('/api/debug/login-check', async (_req: Request, res: Response) => {
+  const diagnostics: any = {
+    timestamp: new Date().toISOString(),
+    checks: {},
+  };
+
+  // 1. Check JWT_SECRET
+  const jwtSecret = process.env.JWT_SECRET;
+  diagnostics.checks.jwt_secret = {
+    status: jwtSecret && jwtSecret.length > 10 ? 'OK' : 'MISSING',
+    length: jwtSecret ? jwtSecret.length : 0,
+    isDefault: jwtSecret === 'your-secret-key-change-in-production',
+  };
+
+  // 2. Check DATABASE_URL
+  diagnostics.checks.database_url = {
+    status: process.env.DATABASE_URL ? 'OK' : 'MISSING',
+    host: process.env.DATABASE_URL?.match(/@([^:\/]+)/)?.[1] || 'unknown',
+  };
+
+  // 3. Check database connection & admin user
+  try {
+    const result = await pool.query(
+      "SELECT id, email, role, \"isActive\", \"firstName\" FROM users WHERE email = 'admin@pon2.de'"
+    );
+    diagnostics.checks.admin_user = {
+      status: result.rows.length > 0 ? 'OK' : 'NOT_FOUND',
+      exists: result.rows.length > 0,
+      isActive: result.rows[0]?.isActive,
+      role: result.rows[0]?.role,
+    };
+  } catch (err: any) {
+    diagnostics.checks.admin_user = {
+      status: 'DB_ERROR',
+      error: err.message,
+    };
+  }
+
+  // 4. Check password hash (test if bcrypt works)
+  try {
+    const bcrypt = require('bcryptjs');
+    const result = await pool.query(
+      "SELECT password FROM users WHERE email = 'admin@pon2.de'"
+    );
+    if (result.rows.length > 0) {
+      const storedHash = result.rows[0].password;
+      const isValid = await bcrypt.compare('password123', storedHash);
+      diagnostics.checks.password_hash = {
+        status: isValid ? 'OK' : 'MISMATCH',
+        hashExists: !!storedHash,
+        hashLength: storedHash?.length,
+        passwordMatches: isValid,
+      };
+    } else {
+      diagnostics.checks.password_hash = { status: 'NO_USER' };
+    }
+  } catch (err: any) {
+    diagnostics.checks.password_hash = {
+      status: 'ERROR',
+      error: err.message,
+    };
+  }
+
+  // 5. Environment info
+  diagnostics.environment = {
+    NODE_ENV: process.env.NODE_ENV || 'not set',
+    PORT: process.env.PORT || 'not set',
+    CORS_ORIGIN: process.env.CORS_ORIGIN || 'not set',
+  };
+
+  // Overall status
+  const allOk = Object.values(diagnostics.checks).every(
+    (check: any) => check.status === 'OK'
+  );
+  diagnostics.overall = allOk ? 'ALL_CHECKS_PASSED' : 'ISSUES_FOUND';
+
+  res.json(diagnostics);
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/cases', caseRoutes);
