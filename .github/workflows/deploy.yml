@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - claude/pon2-inheritance-detective-app-01CTmAYYjMSDvq3uc5jpCek1
+      - claude/restore-pre-merge-state-0UOVb
   workflow_dispatch:
 
 jobs:
