@@ -1,9 +1,10 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import bcrypt from 'bcryptjs';
 // Note: Environment variables are loaded manually in ./db/index.ts (runs first due to import order)
 // This bypasses dotenv's issues with PM2/shell pre-set variables
-import { db, pool } from './db';
+import { db, pool, users, generateId } from './db';
 import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import caseRoutes from './routes/case.routes';
@@ -212,6 +213,51 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+// Auto-seed demo users if none exist
+async function ensureDemoUsersExist() {
+  console.log('🔄 Checking for existing users...');
+
+  try {
+    const existingUsers = await db.select().from(users);
+
+    if (existingUsers.length === 0) {
+      console.log('   ⚠️  No users found - creating demo users...');
+
+      const hashedPassword = await bcrypt.hash('password123', 10);
+
+      await db.insert(users).values([
+        {
+          id: generateId(),
+          email: 'admin@pon2.de',
+          password: hashedPassword,
+          firstName: 'Max',
+          lastName: 'Administrator',
+          role: 'ADMIN',
+          isActive: true,
+        },
+        {
+          id: generateId(),
+          email: 'detective@pon2.de',
+          password: hashedPassword,
+          firstName: 'Anna',
+          lastName: 'Ermittler',
+          role: 'DETECTIVE',
+          isActive: true,
+        },
+      ]);
+
+      console.log('   ✅ Demo users created successfully!');
+      console.log('      Admin: admin@pon2.de / password123');
+      console.log('      Detective: detective@pon2.de / password123');
+    } else {
+      console.log(`   ✅ Found ${existingUsers.length} existing user(s)`);
+    }
+  } catch (error) {
+    console.error('   ⚠️  Could not check/create demo users:', error);
+    // Don't fail startup - just log the error
+  }
+}
+
 // Start server
 async function startServer() {
   console.log('🔄 Starting server...');
@@ -221,6 +267,9 @@ async function startServer() {
     console.log('   Testing database connection...');
     await pool.query('SELECT 1');
     console.log('   ✅ Database connected successfully');
+
+    // Auto-seed demo users if none exist
+    await ensureDemoUsersExist();
 
     // Start listening
     console.log(`   Starting HTTP server on ${HOST}:${PORT}...`);
